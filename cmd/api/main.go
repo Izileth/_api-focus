@@ -3,6 +3,7 @@ package main
 import (
 	"api-focus/internal/config"
 	"api-focus/internal/database"
+	"api-focus/internal/handlers"
 	stripeclient "api-focus/internal/stripe"
 	"log"
 
@@ -29,6 +30,13 @@ func main() {
 			"message": "API Focus rodando!",
 		})
 	})
+
+	// Rotas de Pagamento
+	payments := r.Group("/payments")
+	{
+		payments.POST("/create-intent", handlers.CreatePaymentIntent)
+		payments.POST("/webhook", handlers.HandleWebhook)
+	}
 
 	port := config.GetEnv("PORT")
 	if port == "" {
