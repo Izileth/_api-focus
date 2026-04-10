@@ -4,6 +4,7 @@ import (
 	"api-focus/internal/config"
 	"api-focus/internal/database"
 	"api-focus/internal/handlers"
+	"api-focus/internal/middleware"
 	stripeclient "api-focus/internal/stripe"
 	"log"
 
@@ -25,17 +26,48 @@ func main() {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "API Focus rodando!",
-		})
-	})
+	// Endpoints globais
+	r.GET("/", handlers.RootInfo)
+	r.GET("/health", handlers.HealthCheck)
 
-	// Rotas de Pagamento
-	payments := r.Group("/payments")
+	// API Versioning
+	api := r.Group("/api")
 	{
-		payments.POST("/create-intent", handlers.CreatePaymentIntent)
-		payments.POST("/webhook", handlers.HandleWebhook)
+		// Version 1
+		v1 := api.Group("/v1")
+		v1.Use(middleware.VersionMiddleware("v1"))
+		{
+			v1.GET("/health", handlers.HealthCheck)
+			payments := v1.Group("/payments")
+			{
+				payments.POST("/create-intent", handlers.CreatePaymentIntent)
+				payments.POST("/webhook", handlers.HandleWebhook)
+			}
+		}
+
+		// Version 2
+		v2 := api.Group("/v2")
+		v2.Use(middleware.VersionMiddleware("v2"))
+		{
+			v2.GET("/health", handlers.HealthCheck)
+			payments := v2.Group("/payments")
+			{
+				payments.POST("/create-intent", handlers.CreatePaymentIntent)
+				payments.POST("/webhook", handlers.HandleWebhook)
+			}
+		}
+
+		// Version 3
+		v3 := api.Group("/v3")
+		v3.Use(middleware.VersionMiddleware("v3"))
+		{
+			v3.GET("/health", handlers.HealthCheck)
+			payments := v3.Group("/payments")
+			{
+				payments.POST("/create-intent", handlers.CreatePaymentIntent)
+				payments.POST("/webhook", handlers.HandleWebhook)
+			}
+		}
 	}
 
 	port := config.GetEnv("PORT")
