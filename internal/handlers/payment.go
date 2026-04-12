@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"api-focus/internal/stripe"
 	"encoding/json"
 	"io"
 	"log"
@@ -9,17 +10,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stripe/stripe-go/v78"
-	"github.com/stripe/stripe-go/v78/paymentintent"
 	"github.com/stripe/stripe-go/v78/webhook"
 )
 
 // PaymentRequest define a estrutura para criar um PaymentIntent
 type PaymentRequest struct {
-	Amount   int64  `json:"amount" binding:"required"`   // Valor em centavos (ex: 1000 = R$ 10,00)
-	Currency string `json:"currency" binding:"required"` // Moeda (ex: "brl", "usd")
+	Amount        int64  `json:"amount" binding:"required"`         // Valor em centavos (ex: 1000 = R$ 10,00)
+	Currency      string `json:"currency" binding:"required"`       // Moeda (ex: "brl", "usd")
+	PaymentMethod string `json:"payment_method" binding:"required"` // "card", "pix", "boleto"
+	Email         string `json:"email"`                             // NecessÃ¡rio para Pix e Boleto
+	Name          string `json:"name"`                              // NecessÃ¡rio para Pix e Boleto
+	TaxID         string `json:"tax_id"`                            // CPF/CNPJ (necessÃ¡rio para Boleto e Pix)
 }
 
-// CreatePaymentIntent cria um novo PaymentIntent no Stripe
+// CreatePaymentIntent cria um novo PaymentIntent no Stripe usando o stripeclient
 func CreatePaymentIntent(c *gin.Context) {
 	var req PaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -27,26 +31,49 @@ func CreatePaymentIntent(c *gin.Context) {
 		return
 	}
 
-	params := &stripe.PaymentIntentParams{
-		Amount:   stripe.Int64(req.Amount),
-		Currency: stripe.String(req.Currency),
-		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
-			Enabled: stripe.Bool(true),
-		},
+	var pi *stripe.PaymentIntent
+	var err error
+
+	switch req.PaymentMethod {
+	case "pix":
+		if req.Email == "" || req.Name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email e Nome sÃ£o obrigatÃ³rios para Pix"})
+			return
+		}
+		pi, err = stripeclient.CreatePixIntent(req.Amount, req.Currency, req.Email, req.Name)
+
+	case "boleto":
+		if req.Email == "" || req.Name == "" || req.TaxID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email, Nome e TaxID (CPF/CNPJ) sÃ£o obrigatÃ³rios para Boleto"})
+			return
+		}
+		pi, err = stripeclient.CreateBoletoIntent(req.Amount, req.Currency, req.Email, req.Name, req.TaxID)
+
+	case "card":
+		pi, err = stripeclient.CreateCardIntent(req.Amount, req.Currency)
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "MÃ©todo de pagamento nÃ£o suportado: " + req.PaymentMethod})
+		return
 	}
 
-	// Cria o PaymentIntent no Stripe
-	pi, err := paymentintent.New(params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar intenÃ§Ã£o de pagamento: " + err.Error()})
 		return
 	}
 
-	// Retorna o client_secret para o frontend completar o pagamento
-	c.JSON(http.StatusOK, gin.H{
+	// Retorna o client_secret e outras informaÃ§Ãµes necessÃ¡rias (como QR Code para Pix)
+	response := gin.H{
 		"clientSecret": pi.ClientSecret,
 		"id":           pi.ID,
-	})
+		"status":       pi.Status,
+	}
+
+	if pi.NextAction != nil {
+		response["nextAction"] = pi.NextAction
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // HandleWebhook processa eventos enviados pelo Stripe (ex: confirmaÃ§Ã£o de pagamento)

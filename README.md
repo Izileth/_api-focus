@@ -1,74 +1,98 @@
-# API Focus 🚀
+# API Focus 🚀 - Guia de Integração Frontend
 
-API backend desenvolvida em Go para processamento de pagamentos e gestão de serviços, integrada com Stripe e PostgreSQL (Supabase).
-
-## 🛠️ Tecnologias
-
-- **Linguagem:** [Go 1.26+](https://go.dev/)
-- **Framework Web:** [Gin Gonic](https://gin-gonic.com/)
-- **Banco de Dados:** PostgreSQL via [pgx](https://github.com/jackc/pgx)
-- **Pagamentos:** [Stripe SDK](https://github.com/stripe/stripe-go)
-- **Ambiente:** [godotenv](https://github.com/joho/godotenv) e [Air](https://github.com/air-verse/air) (Live Reload)
-
-## 📁 Estrutura do Projeto
-
-```text
-├── cmd/api/          # Ponto de entrada da aplicação
-├── internal/
-│   ├── config/       # Carregamento de variáveis de ambiente
-│   ├── database/     # Conexão com o banco de dados
-│   ├── handlers/     # Controladores (Lógica das rotas)
-│   ├── stripe/       # Inicialização do cliente Stripe
-│   └── ...           # Repositories e Services (em desenvolvimento)
-└── .env              # Variáveis sensíveis (não commitado)
-```
-
-## 🚀 Como Iniciar
-
-### 1. Pré-requisitos
-- Go instalado.
-- Conta no [Stripe](https://stripe.com/) (para chaves de teste).
-- Banco de dados PostgreSQL (Configurado no Supabase por padrão).
-
-### 2. Configuração do Ambiente
-Crie ou edite o arquivo `.env` na raiz do projeto:
-```env
-PORT=8080
-DATABASE_URL=sua_url_do_postgres
-STRIPE_SECRET_KEY=sua_chave_secreta_do_stripe
-STRIPE_WEBHOOK_SECRET=sua_chave_de_webhook_do_stripe
-```
-
-### 3. Executando a API
-Para rodar em modo de desenvolvimento com live reload:
-```bash
-air
-```
-Ou manualmente:
-```bash
-go run cmd/api/main.go
-```
+API backend em Go para processamento de pagamentos via Stripe (Pix, Boleto e Cartão) e gestão de serviços.
 
 ## 🔌 Endpoints de Pagamento
 
+A API utiliza versionamento. Para novos desenvolvimentos, utilize a **v1**.
+
 ### Criar Intenção de Pagamento
-Cria um `PaymentIntent` no Stripe e retorna o `clientSecret` para o frontend.
-- **URL:** `POST /payments/create-intent`
-- **Body:**
+**URL:** `POST /api/v1/payments/create-intent`
+
+Cria um `PaymentIntent` no Stripe e retorna o `clientSecret` e ações necessárias para concluir o pagamento.
+
+#### 1. Cartão de Crédito
+Apenas o valor e a moeda são obrigatórios para a intenção, mas o Stripe Elements cuidará do restante no front.
+- **Request Body:**
 ```json
 {
-  "amount": 1000,
-  "currency": "brl"
+  "amount": 5000,
+  "currency": "brl",
+  "payment_method": "card"
 }
 ```
 
-### Webhook do Stripe
-Endpoint para receber notificações assíncronas do Stripe.
-- **URL:** `POST /payments/webhook`
-- **Nota:** Requer o [Stripe CLI](https://stripe.com/docs/stripe-cli) para testes locais de webhook:
-  ```bash
-  stripe listen --forward-to localhost:8080/payments/webhook
-  ```
+#### 2. Pix (Obrigatório: Email e Nome)
+Retorna o `nextAction` com os dados para gerar o QR Code.
+- **Request Body:**
+```json
+{
+  "amount": 1000,
+  "currency": "brl",
+  "payment_method": "pix",
+  "email": "cliente@email.com",
+  "name": "Nome do Cliente"
+}
+```
 
-## 📝 Licença
-Este projeto está sob a licença MIT.
+#### 3. Boleto (Obrigatório: Email, Nome e TaxID/CPF)
+Retorna o `nextAction` com o link para o PDF e a linha digitável.
+- **Request Body:**
+```json
+{
+  "amount": 10000,
+  "currency": "brl",
+  "payment_method": "boleto",
+  "email": "cliente@email.com",
+  "name": "Nome do Cliente",
+  "tax_id": "123.456.789-00"
+}
+```
+
+---
+
+### 📥 Resposta da API (Exemplo Pix/Boleto)
+Ao criar uma intenção para Pix ou Boleto, a API retornará o campo `nextAction`. Você deve usar esses dados para exibir o pagamento ao usuário.
+
+```json
+{
+  "clientSecret": "pi_3O...",
+  "id": "pi_3O...",
+  "status": "requires_action",
+  "nextAction": {
+    "type": "display_pix_qr_code",
+    "display_pix_qr_code": {
+      "data": "00020101021226870014...", 
+      "image_url_png": "https://...",
+      "expires_at": 1712950000
+    }
+  }
+}
+```
+*No caso de **Boleto**, o `type` será `verify_with_microdeposits` ou similar, contendo a URL do PDF.*
+
+---
+
+## 🛠️ Como Testar Localmente (Dev)
+
+### 1. Iniciar a API
+```bash
+air
+```
+
+### 2. Configurar Webhooks (Opcional, mas Recomendado)
+Para receber confirmações de pagamento em tempo real no seu ambiente local, use o Stripe CLI:
+```bash
+stripe listen --forward-to localhost:8080/api/v1/payments/webhook
+```
+
+### 3. Variáveis de Ambiente Necessárias (.env)
+```env
+PORT=8080
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+## 📝 Notas de Implementação
+- **Valores:** O campo `amount` é sempre em **centavos** (ex: R$ 10,00 = `1000`).
+- **Segurança:** Nunca armazene a `STRIPE_SECRET_KEY` no frontend. Utilize apenas a `Publishable Key` no cliente.
