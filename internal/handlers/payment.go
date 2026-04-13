@@ -105,14 +105,23 @@ func HandleWebhook(c *gin.Context) {
 			return
 		}
 		// AQUI: Adicione a lÃ³gica para atualizar o banco de dados (ex: marcar pedido como pago)
-		log.Printf("âœ… Pagamento %s recebido com sucesso!", paymentIntent.ID)
+		log.Printf("âœ… Pagamento %s de %d %s recebido com sucesso!", paymentIntent.ID, paymentIntent.Amount, paymentIntent.Currency)
+		
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "success",
+			"message": "Pagamento confirmado com sucesso",
+			"id":      paymentIntent.ID,
+		})
+		return
 
 	case "payment_intent.payment_failed":
 		log.Printf("â Œ Pagamento falhou.")
+		c.JSON(http.StatusOK, gin.H{"status": "failed", "message": "Falha no pagamento registrada"})
+		return
 
 	default:
 		log.Printf("â„¹ï¸  Evento nÃ£o tratado: %s", event.Type)
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, gin.H{"status": "ignored", "message": "Evento recebido"})
 }
