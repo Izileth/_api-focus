@@ -51,13 +51,22 @@ Retorna o `nextAction` com o link para o PDF e a linha digitável.
 
 ---
 
-### 📥 Resposta da API (Exemplo Pix/Boleto)
-Ao criar uma intenção para Pix ou Boleto, a API retornará o campo `nextAction`. Você deve usar esses dados para exibir o pagamento ao usuário.
+### 📥 Resposta da API (Mapeamento)
 
+Todas as requisições bem-sucedidas para criação de intenção retornam o seguinte objeto:
+
+| Campo | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `id` | `string` | Identificador único do `PaymentIntent` (ex: `pi_...`). |
+| `clientSecret` | `string` | Chave secreta usada pelo Stripe Elements para confirmar o pagamento. |
+| `status` | `string` | Status atual (ex: `requires_payment_method`, `requires_action`). |
+| `nextAction` | `object` | (Opcional) Contém dados para Pix (QR Code) ou Boleto (URL/Linha). |
+
+#### Exemplo de Resposta (Pix/Boleto)
 ```json
 {
-  "clientSecret": "pi_3O...",
   "id": "pi_3O...",
+  "clientSecret": "pi_3O..._secret_...",
   "status": "requires_action",
   "nextAction": {
     "type": "display_pix_qr_code",
@@ -69,7 +78,46 @@ Ao criar uma intenção para Pix ou Boleto, a API retornará o campo `nextAction
   }
 }
 ```
-*No caso de **Boleto**, o `type` será `verify_with_microdeposits` ou similar, contendo a URL do PDF.*
+
+---
+
+## ✨ Instruções para o Frontend (UX/Sucesso)
+
+Para garantir uma boa experiência ao usuário, siga estas diretrizes após receber a resposta da API:
+
+### 1. Mensagens de Sucesso e Feedback
+- **Cartão de Crédito:** Se o status for `succeeded`, exiba uma tela de "Pagamento Confirmado" imediatamente.
+- **Pix:** Exiba o QR Code de forma clara, o botão "Copiar Código Pix" e informe que a confirmação é automática (geralmente em segundos).
+- **Boleto:** Ofereça o botão para "Baixar PDF" e mostre a linha digitável com um botão de cópia. Avise que o prazo de compensação é de até 3 dias úteis.
+
+### 2. Estados de Pagamento
+Recomendamos tratar os status retornados pelo Stripe:
+- `requires_payment_method`: O pagamento falhou ou ainda não foi iniciado.
+- `requires_action`: O usuário precisa completar um passo (escanear Pix, pagar Boleto ou 3D Secure).
+- `processing`: O pagamento está sendo processado (comum em boletos e cartões com análise de fraude).
+- `succeeded`: Dinheiro garantido! Libere o acesso ou produto.
+
+### 3. Tratamento de Erros
+Em caso de erro (Status 400 ou 500), a API retornará:
+```json
+{
+  "error": "Descrição detalhada do erro para o desenvolvedor"
+}
+```
+*Dica: No frontend, exiba uma mensagem amigável como "Ops! Algo deu errado com seu pagamento. Tente novamente ou use outro método."*
+
+---
+
+## 🔍 Saúde do Sistema
+Você pode verificar o status da API e do banco de dados:
+**URL:** `GET /health`
+```json
+{
+  "api": "UP",
+  "database": "UP",
+  "message": "API Focus systems check"
+}
+```
 
 ---
 
