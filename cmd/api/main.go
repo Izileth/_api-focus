@@ -24,7 +24,9 @@ func main() {
 	gin.SetMode(gin.DebugMode)
 
 	r := gin.Default()
+	r.Use(middleware.CORSMiddleware())
 	r.SetTrustedProxies(nil)
+	
 
 	// Endpoints globais
 	r.GET("/", handlers.RootInfo)
@@ -41,6 +43,7 @@ func main() {
 			payments := v1.Group("/payments")
 			{
 				payments.POST("/create-intent", handlers.CreatePaymentIntent)
+				payments.POST("/create-checkout-session", handlers.CreateCheckoutSession)
 				payments.POST("/webhook", handlers.HandleWebhook)
 			}
 		}

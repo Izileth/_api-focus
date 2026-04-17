@@ -5,21 +5,22 @@ import (
 	"os"
 
 	"github.com/stripe/stripe-go/v78"
+	"github.com/stripe/stripe-go/v78/checkoutsession"
 	"github.com/stripe/stripe-go/v78/paymentintent"
 )
 
 func Init() {
 	key := os.Getenv("STRIPE_SECRET_KEY")
 	if key == "" {
-		log.Fatal("âš ï¸  STRIPE_SECRET_KEY nÃ£o configurada no .env")
+		log.Fatal("⚠️ STRIPE_SECRET_KEY não configurada no .env")
 	}
 
 	stripe.Key = key
-	log.Println("âœ… Cliente Stripe inicializado!")
+	log.Println("✅ Cliente Stripe inicializado!")
 }
 
-// CreatePixIntent cria uma intenÃ§Ã£o de pagamento via Pix
-func CreatePixIntent(amount int64, currency, email, name string) (*stripe.PaymentIntent, error) {
+// CreatePixIntent cria uma intenção de pagamento via Pix
+func CreatePixIntent(amount int64, currency, email, name, taxID string) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:             stripe.Int64(amount),
 		Currency:           stripe.String(currency),
@@ -35,7 +36,7 @@ func CreatePixIntent(amount int64, currency, email, name string) (*stripe.Paymen
 	return paymentintent.New(params)
 }
 
-// CreateBoletoIntent cria uma intenÃ§Ã£o de pagamento via Boleto
+// CreateBoletoIntent cria uma intenção de pagamento via Boleto
 func CreateBoletoIntent(amount int64, currency, email, name, taxID string) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:             stripe.Int64(amount),
@@ -60,7 +61,7 @@ func CreateBoletoIntent(amount int64, currency, email, name, taxID string) (*str
 	return paymentintent.New(params)
 }
 
-// CreateCardIntent cria uma intenÃ§Ã£o de pagamento via CartÃ£o
+// CreateCardIntent cria uma intenção de pagamento via Cartão
 func CreateCardIntent(amount int64, currency string) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:             stripe.Int64(amount),
@@ -68,4 +69,31 @@ func CreateCardIntent(amount int64, currency string) (*stripe.PaymentIntent, err
 		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
 	}
 	return paymentintent.New(params)
+}
+
+// CreateCheckoutSession cria uma sessão de checkout e retorna a URL para pagamento
+func CreateCheckoutSession(amount int64, currency, successURL, cancelURL string) (*stripe.CheckoutSession, error) {
+	params := &stripe.CheckoutSessionParams{
+		PaymentMethodTypes: stripe.StringSlice([]string{
+			"card",
+			"pix",
+			"boleto",
+		}),
+		LineItems: []*stripe.CheckoutSessionLineItemParams{
+			{
+				PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+					Currency: stripe.String(currency),
+					ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+						Name: stripe.String("Pagamento Focus"),
+					},
+					UnitAmount: stripe.Int64(amount),
+				},
+				Quantity: stripe.Int64(1),
+			},
+		},
+		Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
+		SuccessURL: stripe.String(successURL),
+		CancelURL:  stripe.String(cancelURL),
+	}
+	return checkoutsession.New(params)
 }

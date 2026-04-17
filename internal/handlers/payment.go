@@ -18,9 +18,37 @@ type PaymentRequest struct {
 	Amount        int64  `json:"amount" binding:"required"`         // Valor em centavos (ex: 1000 = R$ 10,00)
 	Currency      string `json:"currency" binding:"required"`       // Moeda (ex: "brl", "usd")
 	PaymentMethod string `json:"payment_method" binding:"required"` // "card", "pix", "boleto"
-	Email         string `json:"email"`                             // NecessÃ¡rio para Pix e Boleto
-	Name          string `json:"name"`                              // NecessÃ¡rio para Pix e Boleto
-	TaxID         string `json:"tax_id"`                            // CPF/CNPJ (necessÃ¡rio para Boleto e Pix)
+	Email         string `json:"email"`                             // Necessário para Pix e Boleto
+	Name          string `json:"name"`                              // Necessário para Pix e Boleto
+	TaxID         string `json:"tax_id"`                            // CPF/CNPJ (necessário para Boleto e Pix)
+}
+
+// CheckoutRequest define a estrutura para criar uma Checkout Session
+type CheckoutRequest struct {
+	Amount     int64  `json:"amount" binding:"required"`
+	Currency   string `json:"currency" binding:"required"`
+	SuccessURL string `json:"success_url" binding:"required"`
+	CancelURL  string `json:"cancel_url" binding:"required"`
+}
+
+// CreateCheckoutSession cria uma sessão de checkout e retorna a URL
+func CreateCheckoutSession(c *gin.Context) {
+	var req CheckoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos: " + err.Error()})
+		return
+	}
+
+	session, err := stripeclient.CreateCheckoutSession(req.Amount, req.Currency, req.SuccessURL, req.CancelURL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao criar sessão de checkout: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"url": session.URL,
+		"id":  session.ID,
+	})
 }
 
 // CreatePaymentIntent cria um novo PaymentIntent no Stripe usando o stripeclient
@@ -36,11 +64,15 @@ func CreatePaymentIntent(c *gin.Context) {
 
 	switch req.PaymentMethod {
 	case "pix":
-		if req.Email == "" || req.Name == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email e Nome sÃ£o obrigatÃ³rios para Pix"})
+		if req.Email == "" || req.Name == "" || req.TaxID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email, Nome e TaxID (CPF/CNPJ) sÃ£o obrigatÃ³rios para Pix"})
 			return
 		}
-		pi, err = stripeclient.CreatePixIntent(req.Amount, req.Currency, req.Email, req.Name)
+		if req.Currency != "brl" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pix suporta apenas a moeda BRL"})
+			return
+		}
+		pi, err = stripeclient.CreatePixIntent(req.Amount, req.Currency, req.Email, req.Name, req.TaxID)
 
 	case "boleto":
 		if req.Email == "" || req.Name == "" || req.TaxID == "" {
