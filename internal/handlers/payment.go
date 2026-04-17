@@ -13,14 +13,17 @@ import (
 	"github.com/stripe/stripe-go/v78/webhook"
 )
 
-// PaymentRequest define a estrutura para criar um PaymentIntent
 type PaymentRequest struct {
-	Amount        int64  `json:"amount" binding:"required"`         // Valor em centavos (ex: 1000 = R$ 10,00)
-	Currency      string `json:"currency" binding:"required"`       // Moeda (ex: "brl", "usd")
+	Amount        int64  `json:"amount" binding:"required"`         // Valor em centavos
+	Currency      string `json:"currency" binding:"required"`       // Moeda (ex: "brl")
 	PaymentMethod string `json:"payment_method" binding:"required"` // "card", "pix", "boleto"
 	Email         string `json:"email"`                             // Necessário para Pix e Boleto
 	Name          string `json:"name"`                              // Necessário para Pix e Boleto
-	TaxID         string `json:"tax_id"`                            // CPF/CNPJ (necessário para Boleto e Pix)
+	TaxID         string `json:"tax_id"`                            // CPF/CNPJ
+	Line1         string `json:"line1"`                             // Rua e número
+	City          string `json:"city"`                              // Cidade
+	State         string `json:"state"`                             // Estado (ex: "SP")
+	PostalCode    string `json:"postal_code"`                       // CEP
 }
 
 // CheckoutRequest define a estrutura para criar uma Checkout Session
@@ -64,22 +67,22 @@ func CreatePaymentIntent(c *gin.Context) {
 
 	switch req.PaymentMethod {
 	case "pix":
-		if req.Email == "" || req.Name == "" || req.TaxID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email, Nome e TaxID (CPF/CNPJ) sÃ£o obrigatÃ³rios para Pix"})
+		if req.Email == "" || req.Name == "" || req.TaxID == "" || req.Line1 == "" || req.PostalCode == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email, Nome, TaxID e Endereço (Rua e CEP) são obrigatórios para Pix"})
 			return
 		}
 		if req.Currency != "brl" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Pix suporta apenas a moeda BRL"})
 			return
 		}
-		pi, err = stripeclient.CreatePixIntent(req.Amount, req.Currency, req.Email, req.Name, req.TaxID)
+		pi, err = stripeclient.CreatePixIntent(req.Amount, req.Currency, req.Email, req.Name, req.TaxID, req.Line1, req.City, req.State, req.PostalCode)
 
 	case "boleto":
-		if req.Email == "" || req.Name == "" || req.TaxID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email, Nome e TaxID (CPF/CNPJ) sÃ£o obrigatÃ³rios para Boleto"})
+		if req.Email == "" || req.Name == "" || req.TaxID == "" || req.Line1 == "" || req.PostalCode == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email, Nome, TaxID e Endereço (Rua e CEP) são obrigatórios para Boleto"})
 			return
 		}
-		pi, err = stripeclient.CreateBoletoIntent(req.Amount, req.Currency, req.Email, req.Name, req.TaxID)
+		pi, err = stripeclient.CreateBoletoIntent(req.Amount, req.Currency, req.Email, req.Name, req.TaxID, req.Line1, req.City, req.State, req.PostalCode)
 
 	case "card":
 		pi, err = stripeclient.CreateCardIntent(req.Amount, req.Currency)

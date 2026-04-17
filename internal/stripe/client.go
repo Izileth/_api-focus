@@ -20,7 +20,7 @@ func Init() {
 }
 
 // CreatePixIntent cria uma intenção de pagamento via Pix
-func CreatePixIntent(amount int64, currency, email, name, taxID string) (*stripe.PaymentIntent, error) {
+func CreatePixIntent(amount int64, currency, email, name, taxID, line1, city, state, postalCode string) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:             stripe.Int64(amount),
 		Currency:           stripe.String(currency),
@@ -30,6 +30,13 @@ func CreatePixIntent(amount int64, currency, email, name, taxID string) (*stripe
 			BillingDetails: &stripe.PaymentIntentPaymentMethodDataBillingDetailsParams{
 				Email: stripe.String(email),
 				Name:  stripe.String(name),
+				Address: &stripe.AddressParams{
+					Line1:      stripe.String(line1),
+					City:       stripe.String(city),
+					State:      stripe.String(state),
+					PostalCode: stripe.String(postalCode),
+					Country:    stripe.String("BR"),
+				},
 			},
 		},
 	}
@@ -37,7 +44,7 @@ func CreatePixIntent(amount int64, currency, email, name, taxID string) (*stripe
 }
 
 // CreateBoletoIntent cria uma intenção de pagamento via Boleto
-func CreateBoletoIntent(amount int64, currency, email, name, taxID string) (*stripe.PaymentIntent, error) {
+func CreateBoletoIntent(amount int64, currency, email, name, taxID, line1, city, state, postalCode string) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:             stripe.Int64(amount),
 		Currency:           stripe.String(currency),
@@ -47,6 +54,13 @@ func CreateBoletoIntent(amount int64, currency, email, name, taxID string) (*str
 			BillingDetails: &stripe.PaymentIntentPaymentMethodDataBillingDetailsParams{
 				Email: stripe.String(email),
 				Name:  stripe.String(name),
+				Address: &stripe.AddressParams{
+					Line1:      stripe.String(line1),
+					City:       stripe.String(city),
+					State:      stripe.String(state),
+					PostalCode: stripe.String(postalCode),
+					Country:    stripe.String("BR"),
+				},
 			},
 			Boleto: &stripe.PaymentMethodBoletoParams{
 				TaxID: stripe.String(taxID),
