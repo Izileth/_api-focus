@@ -3,7 +3,6 @@ package stripeclient
 import (
 	"log"
 	"os"
-
 	"github.com/stripe/stripe-go/v78"
 	"github.com/stripe/stripe-go/v78/checkout/session"
 	"github.com/stripe/stripe-go/v78/paymentintent"

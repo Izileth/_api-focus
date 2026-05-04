@@ -1,140 +1,170 @@
-# API Focus 🚀 - Guia de Integração Frontend
+# API Focus 🚀
 
-API backend em Go para processamento de pagamentos via Stripe (Pix, Boleto e Cartão) e gestão de serviços.
-
-## 🔌 Endpoints de Pagamento
-
-A API utiliza versionamento. Para novos desenvolvimentos, utilize a **v1**. A URL base é `http://localhost:8080` (ou o domínio de produção).
+API robusta em Go para processamento de pagamentos via Stripe e gestão de serviços. Desenvolvida com foco em performance, escalabilidade e facilidade de integração.
 
 ---
 
-### 1. Criar Link de Pagamento (Hosted Checkout)
-**URL:** `POST /api/v1/payments/create-checkout-session`
+## 🛠️ Stack Tecnológica
 
-Ideal para quando você deseja redirecionar o usuário para uma página segura hospedada pelo Stripe que já contém todos os métodos de pagamento (Cartão, Pix, Boleto).
+- **Linguagem:** [Go (Golang)](https://golang.org/) 1.26+
+- **Framework Web:** [Gin Gonic](https://gin-gonic.com/)
+- **Banco de Dados:** [PostgreSQL](https://www.postgresql.org/) (via pgx)
+- **Integração de Pagamentos:** [Stripe SDK](https://stripe.com/docs/api)
+- **Gestão de Configuração:** Godotenv
+- **Hot Reload:** [Air](https://github.com/cosmtrek/air)
 
+---
+
+## 📂 Arquitetura do Projeto
+
+O projeto segue uma estrutura modular para facilitar a manutenção e evolução:
+
+```text
+.
+├── cmd/
+│   └── api/                # Ponto de entrada da aplicação (main.go)
+├── internal/
+│   ├── config/             # Carregamento de variáveis de ambiente
+│   ├── database/           # Conexão e configuração do banco de dados
+│   ├── handlers/           # Lógica de controle dos endpoints
+│   ├── middleware/         # Middlewares (CORS, Versionamento, etc.)
+│   ├── repositories/       # Abstração de acesso aos dados (Em desenvolvimento)
+│   ├── services/           # Regras de negócio (Em desenvolvimento)
+│   └── stripe/             # Cliente e integração direta com a API do Stripe
+├── tmp/                    # Binários e logs temporários (Air)
+├── .air.toml               # Configuração do live reloading
+└── go.mod                  # Dependências do projeto
+```
+
+---
+
+## 🚀 Como Começar
+
+### Pré-requisitos
+- Go 1.26 ou superior instalado.
+- Instância do PostgreSQL rodando.
+- Conta no Stripe com chaves de API.
+
+### Instalação
+
+1. Clone o repositório:
+   ```bash
+   git clone <repo-url>
+   cd api-focus
+   ```
+
+2. Instale as dependências:
+   ```bash
+   go mod tidy
+   ```
+
+3. Configure as variáveis de ambiente:
+   Crie um arquivo `.env` na raiz do projeto com as seguintes chaves:
+   ```env
+   PORT=8080
+   DATABASE_URL=postgres://user:password@localhost:5432/dbname
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   ```
+
+### Executando a API
+
+**Modo Desenvolvimento (com Air):**
+```bash
+air
+```
+
+**Modo Produção:**
+```bash
+go run cmd/api/main.go
+```
+
+---
+
+## 🔌 Referência da API
+
+### URL Base
+`http://localhost:8080/api/{version}`
+
+### Versionamento
+A API suporta versionamento via prefixo na URL: `/v1`, `/v2`, `/v3`. Atualmente, a **v1** é a versão estável recomendada.
+
+---
+
+### 1. Pagamentos
+
+#### A. Criar Intenção de Pagamento (Embedded)
+Inicia um processo de pagamento onde o Stripe decide dinamicamente os métodos disponíveis (Cartão, Pix, Boleto) com base na configuração do dashboard.
+
+- **Endpoint:** `POST /api/v1/payments/create-intent`
 - **Request Body:**
 ```json
 {
   "amount": 5000,
   "currency": "brl",
-  "success_url": "https://moudusfocus.online/sucesso",
-  "cancel_url": "https://moudusfocus.online/cancelado"
+  "email": "cliente@email.com"
 }
 ```
+- **Resposta:** Retorna o `clientSecret` para ser usado no frontend com o Stripe Elements.
 
-- **Resposta:**
-```json
-{
-  "id": "cs_test_...",
-  "url": "https://checkout.stripe.com/c/pay/..."
-}
-```
-*Ação: O frontend deve redirecionar o usuário para a `url` retornada.*
+#### B. Criar Sessão de Checkout (Hosted)
+Redireciona o usuário para uma página hospedada pelo Stripe.
 
----
-
-### 2. Criar Intenção de Pagamento (Embedded)
-**URL:** `POST /api/v1/payments/create-intent`
-
-Utilizado para integrações customizadas onde o pagamento acontece dentro do seu site (usando Stripe Elements).
-
-#### A. Pix (Obrigatório: Email, Nome, CPF e Endereço)
-- **Request Body:**
-```json
-{
-  "amount": 1000,
-  "currency": "brl",
-  "payment_method": "pix",
-  "email": "cliente@email.com",
-  "name": "Nome do Cliente",
-  "tax_id": "123.456.789-00",
-  "line1": "Rua Exemplo, 123",
-  "city": "São Paulo",
-  "state": "SP",
-  "postal_code": "01234-567"
-}
-```
-
-#### B. Boleto (Obrigatório: Email, Nome, CPF e Endereço)
+- **Endpoint:** `POST /api/v1/payments/create-checkout-session`
 - **Request Body:**
 ```json
 {
   "amount": 10000,
   "currency": "brl",
-  "payment_method": "boleto",
-  "email": "cliente@email.com",
-  "name": "Nome do Cliente",
-  "tax_id": "123.456.789-00",
-  "line1": "Rua Exemplo, 123",
-  "city": "São Paulo",
-  "state": "SP",
-  "postal_code": "01234-567"
+  "success_url": "https://seu-site.com/sucesso",
+  "cancel_url": "https://seu-site.com/cancelado"
 }
 ```
 
-#### C. Cartão de Crédito
-- **Request Body:**
-```json
-{
-  "amount": 5000,
-  "currency": "brl",
-  "payment_method": "card"
-}
-```
+#### C. Webhook de Notificação
+Endpoint para receber atualizações de status do Stripe de forma assíncrona.
+
+- **Endpoint:** `POST /api/v1/payments/webhook`
+- **Segurança:** Revalida a assinatura usando `STRIPE_WEBHOOK_SECRET`.
 
 ---
 
-### 📥 Resposta da API (Intent Mapping)
+### 2. Sistema & Saúde
 
-| Campo | Tipo | Descrição |
-| :--- | :--- | :--- |
-| `id` | `string` | Identificador do `PaymentIntent` (ex: `pi_...`). |
-| `clientSecret` | `string` | Usado pelo Stripe Elements para confirmar o pagamento. |
-| `status` | `string` | Status atual (ex: `requires_action`). |
-| `nextAction` | `object` | Contém dados para Pix (QR Code) ou Boleto (URL). |
+- **Health Check:** `GET /health` ou `GET /api/v1/health`
+  - Verifica status da API e conexão com o Banco de Dados.
+- **Info:** `GET /`
+  - Retorna informações básicas e versões disponíveis.
 
 ---
 
-## ✨ Instruções Importantes para o Frontend
+## 🛡️ CORS & Segurança
 
-### 1. Dados de Endereço (CRÍTICO)
-Para **Pix** e **Boleto**, o Stripe agora exige os detalhes de cobrança (`billing_details[address]`). Certifique-se de coletar e enviar:
-- `line1`: Logradouro e número.
-- `postal_code`: CEP formatado ou apenas números.
-- `city` e `state`: Cidade e UF.
-
-### 2. Moeda
-- O **Pix** aceita exclusivamente a moeda `brl`. Tentativas com outras moedas retornarão erro 400.
-
-### 3. Tratamento de Erros
-A API retorna erros estruturados. Exemplo:
-```json
-{
-  "error": "Email, Nome, TaxID e Endereço (Rua e CEP) são obrigatórios para Pix"
-}
-```
-
----
-
-## 🔍 Saúde do Sistema
-**URL:** `GET /health`
-```json
-{
-  "api": "UP",
-  "database": "UP",
-  "message": "API Focus systems check"
-}
-```
-
----
-
-## 🛠️ Configuração de CORS
-A API está configurada para aceitar requisições de:
+A API está configurada para aceitar requisições das seguintes origens por padrão:
 - `http://localhost:3000`
 - `https://moudusfocus.online`
-- `http://moudusfocus.online`
 
-## 📝 Notas
-- **Valores:** Sempre em **centavos** (R$ 1,00 = `100`).
-- **Webhooks:** O status final do pagamento deve ser monitorado via webhook para maior segurança.
+Para adicionar novas origens, altere o middleware em `internal/middleware/cors.go`.
+
+---
+
+## 📝 Notas de Implementação
+
+- **Valores:** Todos os valores financeiros são tratados em **centavos** (ex: R$ 10,00 = `1000`).
+- **Tratamento de Erros:** A API retorna códigos HTTP semânticos e mensagens claras em caso de falha.
+- **Banco de Dados:** Utiliza o driver de alta performance `pgx` para interações com PostgreSQL.
+
+---
+
+## 📖 Documentação Adicional
+
+Para detalhes profundos sobre a integração, consulte nossos guias especializados:
+
+*   **[Guia de Integração Frontend](./docs/frontend-integration.md)**: Fluxos de UX e requisitos.
+*   **[Referência de Payloads](./docs/payloads.md)**: Schemas de JSON e tipos de dados.
+*   **[Webhooks e Ciclo de Vida](./docs/webhooks.md)**: Como lidar com pagamentos assíncronos.
+*   **[Guia de Testes](./docs/testing.md)**: Dados de teste e como usar o Stripe CLI.
+
+---
+
+Desenvolvido com ❤️ por API Focus Team.
