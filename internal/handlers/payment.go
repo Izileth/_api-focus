@@ -39,12 +39,15 @@ func CreatePaymentIntent(c *gin.Context) {
 	if err != nil {
 		// Tratamento correto de erro do Stripe
 		if stripeErr, ok := err.(*stripe.Error); ok {
+			log.Printf("❌ Erro no Stripe (CreatePaymentIntent): Code=%s, DeclineCode=%s, Msg=%s", 
+				stripeErr.Code, stripeErr.DeclineCode, stripeErr.Msg)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": stripeErr.Msg,
 			})
 			return
 		}
 
+		log.Printf("❌ Erro interno (CreatePaymentIntent): %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -122,7 +125,13 @@ func HandleWebhook(c *gin.Context) {
 		log.Printf("✅ Pagamento %s confirmado", pi.ID)
 
 	case "payment_intent.payment_failed":
-		log.Println("❌ Pagamento falhou")
+		var pi stripe.PaymentIntent
+		if err := json.Unmarshal(event.Data.Raw, &pi); err == nil {
+			log.Printf("❌ Pagamento %s falhou: Code=%s, Message=%s", 
+				pi.ID, pi.LastPaymentError.Code, pi.LastPaymentError.Message)
+		} else {
+			log.Println("❌ Pagamento falhou (erro ao ler detalhes)")
+		}
 
 	default:
 		log.Println("ℹ️ Evento ignorado:", event.Type)
