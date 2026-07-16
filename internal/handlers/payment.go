@@ -128,7 +128,7 @@ func HandleWebhook(c *gin.Context) {
 		var pi stripe.PaymentIntent
 		if err := json.Unmarshal(event.Data.Raw, &pi); err == nil {
 			log.Printf("❌ Pagamento %s falhou: Code=%s, Message=%s", 
-				pi.ID, pi.LastPaymentError.Code, pi.LastPaymentError.Message)
+				pi.ID, pi.LastPaymentError.Code, pi.LastPaymentError.Msg)
 		} else {
 			log.Println("❌ Pagamento falhou (erro ao ler detalhes)")
 		}
