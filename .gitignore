@@ -1,1 +1,29 @@
+# Environment variables
 .env
+*.env
+
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.test.exe
+
+# Build and temporary files
+tmp/
+dist/
+bin/
+
+# Test coverage
+*.out
+coverage.html
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
