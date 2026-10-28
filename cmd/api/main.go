@@ -12,12 +12,12 @@ import (
 )
 
 func main() {
-	log.Println("âš™ï¸  Iniciando a API...")
+	log.Println("⚙️ Iniciando a API...")
 
-	// Inicializa configuraÃ§Ãµes de ambiente
+	// Inicializa configurações de ambiente
 	config.LoadEnv()
 
-	// Inicializa conexÃµes e validaÃ§Ãµes
+	// Inicializa conexões e validações
 	database.Connect()
 	stripeclient.Init()
 
@@ -26,7 +26,6 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.CORSMiddleware())
 	r.SetTrustedProxies(nil)
-	
 
 	// Endpoints globais
 	r.GET("/", handlers.RootInfo)
@@ -78,8 +77,8 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("âš¡ï¸  API pronta e ouvindo na porta %s", port)
+	log.Printf("⚡ API pronta e ouvindo na porta %s", port)
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("â Œ Falha ao iniciar o servidor: %v", err)
+		log.Fatalf("❌ Falha ao iniciar o servidor: %v", err)
 	}
 }
