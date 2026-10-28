@@ -27,3 +27,6 @@ coverage.html
 *~
 .DS_Store
 Thumbs.db
+
+# Stripe
+stripe-mock
